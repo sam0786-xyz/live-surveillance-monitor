@@ -1,0 +1,44 @@
+# StelX Drone Surveillance Configuration
+# Edit these settings to customize behavior
+
+# Vehicle Detection Settings
+detection:
+  model: "yolov8n.pt"           # Model: yolov8n.pt (fast), yolov8s.pt (accurate)
+  confidence_threshold: 0.20    # Lower = more detections (0.0-1.0)
+  iou_threshold: 0.45           # Overlap threshold for NMS
+  device: "mps"                 # Device: mps (Apple GPU), cpu, cuda
+  classes: [2, 5, 7]            # COCO classes: 2=car, 5=bus, 7=truck
+
+# License Plate Recognition
+plate_recognition:
+  enabled: true                 # Set false to disable (faster processing)
+  ocr_languages:
+    - en
+  confidence_threshold: 0.30    # Min OCR confidence
+
+# Object Tracking
+tracking:
+  algorithm: "deepsort"
+  max_age: 30                   # Frames to keep track after occlusion
+  min_hits: 3                   # Min detections before confirming track
+  iou_threshold: 0.3
+
+# Video Input
+video:
+  source: 0                     # 0=webcam, or path to video/RTSP
+  width: 1280
+  height: 720
+  fps: 30
+
+# Dashboard Server
+server:
+  host: "0.0.0.0"
+  port: 8000
+  ocr_every_n_frames: 10        # Run OCR every N frames (for real-time)
+
+# Visualization
+visualization:
+  show_confidence: true
+  show_track_id: true
+  show_trajectory: true
+  bbox_thickness: 2

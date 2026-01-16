@@ -1,0 +1,11 @@
+# Placeholder for pre-trained model weights
+# 
+# The system will automatically download YOLOv8 weights on first run.
+# 
+# For custom license plate detection, place your trained model here:
+#   - license_plate_detector.pt
+#
+# For better vehicle detection from aerial views, you can use:
+#   - yolov8n.pt (default, fastest)
+#   - yolov8s.pt (better accuracy)
+#   - yolov8m.pt (best accuracy, slower)
