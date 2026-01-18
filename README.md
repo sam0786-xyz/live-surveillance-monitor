@@ -3,15 +3,16 @@
 **Real-time vehicle detection, crowd monitoring, license plate recognition, and object tracking for drone surveillance.**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
-![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-green)
+![YOLOv11](https://img.shields.io/badge/YOLOv11-Ultralytics-green)
 ![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-red)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-M4%20Optimized-lightgrey)
+![High Altitude](https://img.shields.io/badge/High%20Altitude-200--300m-orange)
 
 ---
 
 ## 🎯 Features
 
-- **🚗 Vehicle Detection** - Detects cars, trucks, buses in real-time using YOLOv8
+- **🚗 Vehicle Detection** - Detects cars, trucks, buses in real-time using YOLOv11
 - **👥 Crowd Monitoring** - Counts people and tracks crowd density (LOW/MEDIUM/HIGH)
 - **🔖 License Plate Recognition** - Reads license plates (optimized for Indian format)
 - **🎯 Click-to-Track** - Select and follow any vehicle by clicking on it
@@ -26,7 +27,8 @@
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Detection** | YOLOv8 (Ultralytics) | Vehicle detection with MPS acceleration |
+| **Detection** | YOLOv11l (Ultralytics) | High-accuracy detection for small objects |
+| **Preprocessing** | OpenCV CLAHE | Contrast enhancement for low-quality images |
 | **OCR** | EasyOCR | License plate text extraction |
 | **Tracking** | DeepSORT | Multi-object tracking with re-ID |
 | **Backend** | FastAPI + WebSocket | Real-time API and streaming |
@@ -82,7 +84,7 @@ drone_surveillance/
 │   └── static/             # Frontend (HTML/CSS/JS)
 │
 ├── models/
-│   ├── detector.py         # YOLOv8 vehicle detection
+│   ├── detector.py         # YOLOv11 vehicle detection with SAHI
 │   └── tracker.py          # DeepSORT tracking
 │
 ├── modules/
@@ -107,10 +109,28 @@ Edit `config.yaml`:
 
 ```yaml
 detection:
-  model: "yolov8n.pt"           # yolov8n (fast) / yolov8s (accurate)
-  confidence_threshold: 0.20    # Lower = more detections
+  model: "yolo11l.pt"           # yolo11l for high-altitude small objects
+  confidence_threshold: 0.15    # Lower for small object detection
   device: "mps"                 # mps (Apple GPU) / cpu
   classes: [0, 2, 5, 7]         # 0=person, 2=car, 5=bus, 7=truck
+
+preprocessing:                  # Image enhancement for drone footage
+  enabled: true
+  clahe:                        # Contrast enhancement
+    enabled: true
+    clip_limit: 2.0
+  sharpening:                   # Edge enhancement
+    enabled: true
+  upscaling:                    # Upscale low-res inputs
+    enabled: true
+    min_dimension: 640
+    target_dimension: 1280
+
+sahi:                           # Sliced inference for small objects
+  enabled: true
+  slice_height: 512
+  slice_width: 512
+  overlap_ratio: 0.2
 
 crowd_monitoring:
   enabled: true
@@ -163,9 +183,9 @@ Tested on **M4 MacBook Air**:
 
 | Mode | FPS | Notes |
 |------|-----|-------|
-| Detection only | ~25-30 | Fast vehicle detection |
-| Detection + Tracking | ~20-25 | With DeepSORT |
-| Full (with OCR) | ~15-20 | OCR every 10 frames |
+| YOLOv11l Detection | ~16 | With CLAHE/sharpening preprocessing |
+| Detection + SAHI | ~10-12 | Sliced inference for small objects |
+| Full Pipeline (with OCR) | ~8-15 | OCR every 10 frames |
 
 ---
 

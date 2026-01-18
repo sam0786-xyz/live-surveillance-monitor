@@ -23,7 +23,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from utils.visualization import encode_frame_to_base64, Visualizer
-from models.detector import VehicleDetector, Detection
+from models.detector import VehicleDetector, SAHIDetector, Detection
 from models.tracker import ObjectTracker, Track
 
 
@@ -82,12 +82,19 @@ class AppState:
     @property
     def detector(self):
         if self._detector is None:
-            print("🔧 Loading vehicle/person detector...")
-            self._detector = VehicleDetector(
-                model_path="yolov8n.pt",
-                confidence_threshold=0.20,  # Low threshold for dark cars
+            print("🔧 Loading SAHI detector for high-altitude detection...")
+            # Use SAHI for sliced inference (better for small objects)
+            self._detector = SAHIDetector(
+                model_path="yolo11l.pt",
+                confidence_threshold=0.15,  # Lower threshold for high-altitude
                 device="mps",
-                classes=[0, 2, 5, 7]  # 0=person, 2=car, 5=bus, 7=truck
+                classes=[0, 2, 5, 7],  # 0=person, 2=car, 5=bus, 7=truck
+                slice_height=512,
+                slice_width=512,
+                overlap_height_ratio=0.2,
+                overlap_width_ratio=0.2,
+                postprocess_type="NMS",
+                postprocess_match_threshold=0.5
             )
         return self._detector
     
