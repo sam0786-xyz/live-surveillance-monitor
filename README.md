@@ -36,11 +36,23 @@
 
 ---
 
-## � Installation
+## 🎯 High-Altitude Detection
+
+Optimized for **200-300m altitude** drone surveillance with:
+
+- **YOLOv11l Model** - State-of-the-art detection for small objects
+- **SAHI Sliced Inference** - Divides images into overlapping tiles for better detection
+- **CLAHE Enhancement** - Adaptive histogram equalization for low-contrast footage
+- **Image Sharpening** - Edge enhancement for blurry drone images
+- **Auto-Upscaling** - Upscales low-resolution inputs for better accuracy
+
+---
+
+## 📦 Installation
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/sam0786-xyz/live-surveillance-monitor.git
 cd drone_surveillance
 
 # Create virtual environment
