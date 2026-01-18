@@ -60,6 +60,14 @@ class AppState:
         self.detections: List[Dict] = []
         self.selected_track_id: Optional[int] = None
         
+        # Crowd monitoring
+        self.crowd_stats: Dict = {
+            'count': 0,
+            'density': 'low',
+            'density_thresholds': {'low': 5, 'medium': 15}
+        }
+        self.person_detections: List[Dict] = []
+        
         # Models (lazy loaded)
         self._detector = None
         self._tracker = None
@@ -74,11 +82,12 @@ class AppState:
     @property
     def detector(self):
         if self._detector is None:
-            print("🔧 Loading vehicle detector...")
+            print("🔧 Loading vehicle/person detector...")
             self._detector = VehicleDetector(
                 model_path="yolov8n.pt",
                 confidence_threshold=0.20,  # Low threshold for dark cars
-                device="mps"
+                device="mps",
+                classes=[0, 2, 5, 7]  # 0=person, 2=car, 5=bus, 7=truck
             )
         return self._detector
     
@@ -116,21 +125,39 @@ def process_frame_fast(image: np.ndarray, run_ocr: bool = False) -> Dict:
     """
     Fast frame processing optimized for real-time.
     OCR only runs when run_ocr=True to maintain frame rate.
+    Includes crowd monitoring for person detection.
     """
     start_time = time.time()
     
     # Run detection (fast - ~30-50ms on M4)
-    detections = state.detector.detect(image)
+    all_detections = state.detector.detect(image)
     
-    # Run tracking (fast - ~5-10ms)
-    tracks = state.tracker.update(detections, image)
+    # Separate person detections from vehicle detections
+    person_detections = [d for d in all_detections if d.class_name == 'person']
+    vehicle_detections = [d for d in all_detections if d.class_name != 'person']
     
-    # Plate recognition - only run periodically
+    # Update crowd stats
+    person_count = len(person_detections)
+    thresholds = state.crowd_stats['density_thresholds']
+    if person_count < thresholds['low']:
+        density_level = 'low'
+    elif person_count < thresholds['medium']:
+        density_level = 'medium'
+    else:
+        density_level = 'high'
+    
+    state.crowd_stats['count'] = person_count
+    state.crowd_stats['density'] = density_level
+    
+    # Run tracking on vehicles only (fast - ~5-10ms)
+    tracks = state.tracker.update(vehicle_detections, image)
+    
+    # Plate recognition - only run periodically (on vehicles only)
     plates_found = state.last_plates.copy() if not run_ocr else []
     
-    if run_ocr and state.plate_recognizer and detections:
-        print(f"   🔍 Running OCR on {len(detections)} vehicles...")
-        for det in detections[:3]:  # Limit to 3 vehicles for speed
+    if run_ocr and state.plate_recognizer and vehicle_detections:
+        print(f"   🔍 Running OCR on {len(vehicle_detections)} vehicles...")
+        for det in vehicle_detections[:3]:  # Limit to 3 vehicles for speed
             x1, y1, x2, y2 = det.bbox
             try:
                 h, w = image.shape[:2]
@@ -176,8 +203,29 @@ def process_frame_fast(image: np.ndarray, run_ocr: bool = False) -> Dict:
     output_frame = image.copy()
     
     try:
-        # Draw detections with track IDs
-        for i, det in enumerate(detections):
+        # Draw person detections (crowd monitoring) - ORANGE color
+        for i, det in enumerate(person_detections):
+            x1, y1, x2, y2 = det.bbox
+            h, w = output_frame.shape[:2]
+            x1, y1 = max(0, x1), max(0, y1)
+            x2, y2 = min(w, x2), min(h, y2)
+            
+            # Color based on density
+            if density_level == 'high':
+                color = (0, 0, 255)  # Red for high density
+            elif density_level == 'medium':
+                color = (0, 165, 255)  # Orange for medium
+            else:
+                color = (0, 255, 255)  # Yellow for low
+            
+            cv2.rectangle(output_frame, (x1, y1), (x2, y2), color, 2)
+            label = f"Person"
+            label_y = max(20, y1 - 10)
+            cv2.putText(output_frame, label, (x1, label_y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        
+        # Draw vehicle detections with track IDs
+        for i, det in enumerate(vehicle_detections):
             x1, y1, x2, y2 = det.bbox
             h, w = output_frame.shape[:2]
             x1, y1 = max(0, x1), max(0, y1)
@@ -213,12 +261,31 @@ def process_frame_fast(image: np.ndarray, run_ocr: bool = False) -> Dict:
         
         # Draw plates on frame
         for i, plate in enumerate(plates_found[:3]):
-            if i < len(detections):
-                x1, y1, x2, y2 = detections[i].bbox
+            if i < len(vehicle_detections):
+                x1, y1, x2, y2 = vehicle_detections[i].bbox
                 plate_y = min(output_frame.shape[0] - 10, y2 + 25)
                 text = f"🔖 {plate['text']}"
                 cv2.putText(output_frame, text, (x1, plate_y),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+        
+        # Draw crowd stats overlay in top-right corner
+        if person_count > 0:
+            overlay_text = f"Crowd: {person_count} ({density_level.upper()})"
+            text_size = cv2.getTextSize(overlay_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+            overlay_x = output_frame.shape[1] - text_size[0] - 20
+            overlay_y = 40
+            # Background rectangle
+            cv2.rectangle(output_frame, (overlay_x - 10, overlay_y - 30),
+                         (overlay_x + text_size[0] + 10, overlay_y + 10), (0, 0, 0), -1)
+            # Density color for text
+            if density_level == 'high':
+                text_color = (0, 0, 255)
+            elif density_level == 'medium':
+                text_color = (0, 165, 255)
+            else:
+                text_color = (0, 255, 0)
+            cv2.putText(output_frame, overlay_text, (overlay_x, overlay_y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.8, text_color, 2)
     except Exception as e:
         print(f"   └─ Draw error: {e}")
     
@@ -226,9 +293,9 @@ def process_frame_fast(image: np.ndarray, run_ocr: bool = False) -> Dict:
     processing_time = (time.time() - start_time) * 1000
     fps = 1000 / processing_time if processing_time > 0 else 0
     
-    # Build detection data
+    # Build detection data (vehicles only for detection grid)
     detection_data = []
-    for i, det in enumerate(detections[:10]):
+    for i, det in enumerate(vehicle_detections[:10]):
         x1, y1, x2, y2 = det.bbox
         h, w = image.shape[:2]
         x1, y1 = max(0, x1), max(0, y1)
@@ -267,11 +334,17 @@ def process_frame_fast(image: np.ndarray, run_ocr: bool = False) -> Dict:
         'frame_base64': frame_b64,
         'detections': detection_data,
         'plates': plates_found,
+        'crowd': {
+            'count': person_count,
+            'density': density_level
+        },
         'stats': {
-            'vehicles': len(detections),
+            'vehicles': len(vehicle_detections),
             'plates': len(plates_found),
             'fps': round(fps, 1),
-            'tracking': state.selected_track_id
+            'tracking': state.selected_track_id,
+            'crowd_count': person_count,
+            'crowd_density': density_level
         }
     }
 
@@ -398,6 +471,16 @@ async def clear_plates():
 async def get_detections():
     """Get recent detections"""
     return {"detections": state.detections[-20:]}
+
+
+@app.get("/api/crowd_stats")
+async def get_crowd_stats():
+    """Get current crowd monitoring statistics"""
+    return {
+        "crowd_count": state.crowd_stats['count'],
+        "density": state.crowd_stats['density'],
+        "thresholds": state.crowd_stats['density_thresholds']
+    }
 
 
 # WebSocket endpoints

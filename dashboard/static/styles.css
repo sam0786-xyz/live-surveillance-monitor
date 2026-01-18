@@ -619,6 +619,155 @@ body {
     color: var(--accent-violet);
 }
 
+/* Crowd Monitoring Styles */
+.stat-icon.crowd {
+    background: rgba(244, 63, 94, 0.15);
+    color: var(--accent-rose);
+}
+
+.stat-icon.density {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-emerald);
+}
+
+.stat-icon.density.density-low {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-emerald);
+}
+
+.stat-icon.density.density-medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-amber);
+}
+
+.stat-icon.density.density-high {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    animation: pulse-danger 1.5s infinite;
+}
+
+@keyframes pulse-danger {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    50% {
+        box-shadow: 0 0 12px 4px rgba(239, 68, 68, 0.2);
+    }
+}
+
+.density-value {
+    font-weight: 700;
+}
+
+.density-value.density-low {
+    color: var(--accent-emerald);
+}
+
+.density-value.density-medium {
+    color: var(--accent-amber);
+}
+
+.density-value.density-high {
+    color: #ef4444;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Crowd Badge Styles */
+.nav-badge.crowd-badge {
+    background: var(--accent-rose);
+}
+
+.nav-badge.density-badge-low {
+    background: var(--accent-emerald);
+}
+
+.nav-badge.density-badge-medium {
+    background: var(--accent-amber);
+}
+
+.nav-badge.density-badge-high {
+    background: #ef4444;
+    animation: pulse-badge 1s infinite;
+}
+
+@keyframes pulse-badge {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* Crowd Alert Notification */
+.crowd-alert {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-lg);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 9999;
+    animation: slide-in 0.3s ease-out;
+    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.4);
+}
+
+.crowd-alert svg {
+    width: 24px;
+    height: 24px;
+    color: white;
+    flex-shrink: 0;
+}
+
+.crowd-alert span {
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.crowd-alert.fade-out {
+    animation: slide-out 0.5s ease-in forwards;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slide-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* Crowd Density Card */
+.crowd-density-card {
+    border: 1px solid var(--glass-border);
+    transition: border-color var(--transition-normal);
+}
+
+.crowd-density-card:has(.density-high) {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+}
+
 .stat-content {
     display: flex;
     flex-direction: column;

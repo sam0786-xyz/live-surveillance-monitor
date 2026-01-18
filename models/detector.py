@@ -39,12 +39,13 @@ class Detection:
 
 class VehicleDetector:
     """
-    YOLOv8-based vehicle detector
-    Detects cars, buses, trucks from drone footage
+    YOLOv8-based vehicle and person detector
+    Detects cars, buses, trucks, and people from drone footage
     """
     
-    # COCO class IDs for vehicles
-    VEHICLE_CLASSES = {
+    # COCO class IDs for vehicles and people
+    COCO_CLASSES = {
+        0: 'person',
         2: 'car',
         3: 'motorcycle',
         5: 'bus',
@@ -111,7 +112,7 @@ class VehicleDetector:
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                 confidence = float(box.conf[0])
                 class_id = int(box.cls[0])
-                class_name = self.VEHICLE_CLASSES.get(class_id, 'vehicle')
+                class_name = self.COCO_CLASSES.get(class_id, 'unknown')
                 
                 detections.append(Detection(
                     bbox=(x1, y1, x2, y2),

@@ -7,7 +7,14 @@ detection:
   confidence_threshold: 0.20    # Lower = more detections (0.0-1.0)
   iou_threshold: 0.45           # Overlap threshold for NMS
   device: "mps"                 # Device: mps (Apple GPU), cpu, cuda
-  classes: [2, 5, 7]            # COCO classes: 2=car, 5=bus, 7=truck
+  classes: [0, 2, 5, 7]         # COCO classes: 0=person, 2=car, 5=bus, 7=truck
+
+# Crowd Monitoring Settings
+crowd_monitoring:
+  enabled: true                 # Enable crowd detection and counting
+  density_thresholds:
+    low: 5                      # Below this count = low density
+    medium: 15                  # Below this count = medium density (above = high)
 
 # License Plate Recognition
 plate_recognition:

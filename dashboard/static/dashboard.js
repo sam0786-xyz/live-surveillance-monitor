@@ -21,7 +21,9 @@ class SurveillanceDashboard {
         this.stats = {
             vehicles: 0,
             plates: 0,
-            fps: 0
+            fps: 0,
+            crowd_count: 0,
+            crowd_density: 'low'
         };
 
         // Canvas
@@ -350,6 +352,13 @@ class SurveillanceDashboard {
             this.updateStatsDisplay();
         }
 
+        // Update crowd data
+        if (result.crowd) {
+            this.stats.crowd_count = result.crowd.count;
+            this.stats.crowd_density = result.crowd.density;
+            this.updateCrowdDisplay();
+        }
+
         // Update detections
         if (result.detections) {
             result.detections.forEach(det => {
@@ -463,10 +472,89 @@ class SurveillanceDashboard {
         document.getElementById('totalPlates').textContent = this.stats.plates || this.plates.length;
         document.getElementById('fpsValue').textContent = (this.stats.fps || 0).toFixed(1);
         document.getElementById('trackingId').textContent = this.selectedTrackId ? `#${this.selectedTrackId}` : '--';
+        
+        // Update crowd stats
+        const crowdCount = this.stats.crowd_count || 0;
+        const crowdDensity = this.stats.crowd_density || 'low';
+        
+        document.getElementById('crowdCount').textContent = crowdCount;
+        document.getElementById('crowdBadge').textContent = crowdCount;
+        
+        const densityEl = document.getElementById('densityLevel');
+        const densityIcon = document.getElementById('densityIcon');
+        
+        if (densityEl) {
+            densityEl.textContent = crowdDensity.toUpperCase();
+            densityEl.className = `stat-value density-value density-${crowdDensity}`;
+        }
+        
+        if (densityIcon) {
+            densityIcon.className = `stat-icon density density-${crowdDensity}`;
+        }
 
         // Update badges
         document.getElementById('vehicleBadge').textContent = this.detections.length;
         document.getElementById('plateBadge').textContent = this.plates.length;
+    }
+
+    updateCrowdDisplay() {
+        const crowdCount = this.stats.crowd_count || 0;
+        const crowdDensity = this.stats.crowd_density || 'low';
+        
+        // Update crowd count
+        const crowdCountEl = document.getElementById('crowdCount');
+        if (crowdCountEl) {
+            crowdCountEl.textContent = crowdCount;
+        }
+        
+        // Update crowd badge
+        const crowdBadge = document.getElementById('crowdBadge');
+        if (crowdBadge) {
+            crowdBadge.textContent = crowdCount;
+            crowdBadge.className = `nav-badge crowd-badge density-badge-${crowdDensity}`;
+        }
+        
+        // Update density level
+        const densityEl = document.getElementById('densityLevel');
+        if (densityEl) {
+            densityEl.textContent = crowdDensity.toUpperCase();
+            densityEl.className = `stat-value density-value density-${crowdDensity}`;
+        }
+        
+        // Update density icon
+        const densityIcon = document.getElementById('densityIcon');
+        if (densityIcon) {
+            densityIcon.className = `stat-icon density density-${crowdDensity}`;
+        }
+        
+        // Show alert for high density
+        if (crowdDensity === 'high' && crowdCount > 0) {
+            this.showCrowdAlert(crowdCount);
+        }
+    }
+    
+    showCrowdAlert(count) {
+        // Only show alert once per high density event
+        if (this.lastAlertDensity === 'high') return;
+        this.lastAlertDensity = 'high';
+        
+        // Create alert notification
+        const alert = document.createElement('div');
+        alert.className = 'crowd-alert';
+        alert.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>High Crowd Density: ${count} people detected</span>
+        `;
+        document.body.appendChild(alert);
+        
+        // Remove after 5 seconds
+        setTimeout(() => {
+            alert.classList.add('fade-out');
+            setTimeout(() => alert.remove(), 500);
+        }, 5000);
     }
 
     updateDetectionGrid() {

@@ -56,6 +56,11 @@
                         <span>License Plates</span>
                         <span class="nav-badge" id="plateBadge">0</span>
                     </a>
+                    <a href="#" class="nav-item" id="navCrowd">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <span>Crowd Monitor</span>
+                        <span class="nav-badge crowd-badge" id="crowdBadge">0</span>
+                    </a>
                 </div>
             </nav>
             
@@ -163,6 +168,24 @@
                         <div class="stat-content">
                             <span class="stat-value" id="trackingId">--</span>
                             <span class="stat-label">Active Tracking</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon crowd">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value" id="crowdCount">0</span>
+                            <span class="stat-label">People Detected</span>
+                        </div>
+                    </div>
+                    <div class="stat-card crowd-density-card">
+                        <div class="stat-icon density" id="densityIcon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="10"/></svg>
+                        </div>
+                        <div class="stat-content">
+                            <span class="stat-value density-value" id="densityLevel">LOW</span>
+                            <span class="stat-label">Crowd Density</span>
                         </div>
                     </div>
                 </div>
