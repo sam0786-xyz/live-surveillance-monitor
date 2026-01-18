@@ -1,6 +1,6 @@
 # 🚁 StelX Drone Surveillance System
 
-**Real-time vehicle detection, license plate recognition, and object tracking for drone surveillance.**
+**Real-time vehicle detection, crowd monitoring, license plate recognition, and object tracking for drone surveillance.**
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue)
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-green)
@@ -12,11 +12,13 @@
 ## 🎯 Features
 
 - **🚗 Vehicle Detection** - Detects cars, trucks, buses in real-time using YOLOv8
+- **👥 Crowd Monitoring** - Counts people and tracks crowd density (LOW/MEDIUM/HIGH)
 - **🔖 License Plate Recognition** - Reads license plates (optimized for Indian format)
 - **🎯 Click-to-Track** - Select and follow any vehicle by clicking on it
 - **📊 Professional Dashboard** - Modern web UI with real-time stats
 - **📤 File Upload** - Process images or videos via drag-and-drop
 - **⚡ Real-Time Processing** - Optimized for 15-25 FPS on Apple Silicon
+- **🚨 Crowd Alerts** - Automatic notifications when crowd density is high
 
 ---
 
@@ -108,6 +110,13 @@ detection:
   model: "yolov8n.pt"           # yolov8n (fast) / yolov8s (accurate)
   confidence_threshold: 0.20    # Lower = more detections
   device: "mps"                 # mps (Apple GPU) / cpu
+  classes: [0, 2, 5, 7]         # 0=person, 2=car, 5=bus, 7=truck
+
+crowd_monitoring:
+  enabled: true
+  density_thresholds:
+    low: 5                      # Below this = LOW density
+    medium: 15                  # Below this = MEDIUM, above = HIGH
 
 plate_recognition:
   enabled: true
@@ -119,20 +128,22 @@ tracking:
 
 ---
 
-## � Dashboard Features
+## 🖥 Dashboard Features
 
 | Feature | Description |
 |---------|-------------|
 | **Video Feed** | Real-time processed video with annotations |
 | **Vehicle Grid** | Thumbnails of detected vehicles |
 | **Plate List** | Recognized plates with confidence scores |
-| **Stats Cards** | Vehicle count, plate count, FPS |
+| **Crowd Monitor** | People count and density level (LOW/MEDIUM/HIGH) |
+| **Stats Cards** | Vehicle count, plate count, crowd count, FPS |
 | **Click-to-Track** | Click on any vehicle to highlight and follow |
+| **Crowd Alerts** | Visual alerts when crowd density is HIGH |
 | **Export** | Download plates as CSV |
 
 ---
 
-## � API Endpoints
+## 🔌 API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -140,12 +151,13 @@ tracking:
 | `POST` | `/api/process_image` | Process an image |
 | `POST` | `/api/process_frame` | Process a video frame |
 | `GET` | `/api/plates` | Get detected plates |
+| `GET` | `/api/crowd_stats` | Get crowd count and density |
 | `POST` | `/api/select/{id}` | Select a track |
 | `WS` | `/ws/control` | WebSocket for controls |
 
 ---
 
-## � Performance
+## 📈 Performance
 
 Tested on **M4 MacBook Air**:
 
