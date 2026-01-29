@@ -37,6 +37,17 @@ env/
 weights/*.pt
 !weights/.gitkeep
 
+# Datasets (too large for GitHub)
+datasets/
+*.zip
+*.tar.gz
+*.tar
+
+# Training outputs (can be regenerated)
+training_output/
+runs/
+*.onnx
+
 # Test outputs
 sample_data/
 *.mp4
@@ -52,3 +63,7 @@ Thumbs.db
 
 # Local config overrides
 config.local.yaml
+
+# Cache files
+*.cache
+.cache/

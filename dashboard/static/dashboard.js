@@ -30,6 +30,14 @@ class SurveillanceDashboard {
         this.canvas = null;
         this.ctx = null;
 
+        // Real-time processing state
+        this.isProcessingFrame = false;
+        this.lastProcessedFrame = null;
+        this.pendingAnnotations = null;
+        this.liveDetections = []; // For real-time box overlay during video playback
+        this.frameSkipCounter = 0;
+        this.processEveryNFrames = 3; // Process every 3rd frame for smooth video
+
         // Initialize
         this.init();
     }
@@ -38,6 +46,11 @@ class SurveillanceDashboard {
         // Get canvas
         this.canvas = document.getElementById('videoCanvas');
         this.ctx = this.canvas.getContext('2d');
+
+        // Webcam state
+        this.webcamStream = null;
+        this.webcamVideo = null;
+        this.isWebcamActive = false;
 
         // Resize canvas
         this.resizeCanvas();
@@ -54,6 +67,9 @@ class SurveillanceDashboard {
 
         // Setup controls
         this.setupControls();
+
+        // Setup camera
+        this.setupCamera();
 
         // Update datetime
         this.updateDateTime();
@@ -168,6 +184,123 @@ class SurveillanceDashboard {
         });
     }
 
+    setupCamera() {
+        const navCamera = document.getElementById('navCamera');
+
+        navCamera?.addEventListener('click', async () => {
+            if (this.isWebcamActive) {
+                this.stopWebcam();
+            } else {
+                await this.startWebcam();
+            }
+        });
+    }
+
+    async startWebcam() {
+        try {
+            // Request camera access
+            this.webcamStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    facingMode: 'environment'  // Prefer back camera on mobile
+                },
+                audio: false
+            });
+
+            // Create video element
+            this.webcamVideo = document.createElement('video');
+            this.webcamVideo.srcObject = this.webcamStream;
+            this.webcamVideo.autoplay = true;
+            this.webcamVideo.playsInline = true;
+            await this.webcamVideo.play();
+
+            // Hide upload overlay
+            document.getElementById('videoOverlay')?.classList.add('hidden');
+
+            // Update UI
+            this.isWebcamActive = true;
+            const navCamera = document.getElementById('navCamera');
+            if (navCamera) {
+                navCamera.classList.add('active');
+                navCamera.querySelector('span:first-of-type').textContent = 'Stop Camera';
+            }
+
+            // Update live badge
+            const liveBadge = document.getElementById('liveBadge');
+            if (liveBadge) {
+                liveBadge.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            }
+
+            // Start processing webcam frames
+            this.processWebcamFrame();
+
+            console.log('Webcam started');
+        } catch (error) {
+            console.error('Error accessing webcam:', error);
+            alert('Could not access camera. Please ensure camera permissions are granted.');
+        }
+    }
+
+    stopWebcam() {
+        if (this.webcamStream) {
+            this.webcamStream.getTracks().forEach(track => track.stop());
+            this.webcamStream = null;
+        }
+
+        if (this.webcamVideo) {
+            this.webcamVideo.srcObject = null;
+            this.webcamVideo = null;
+        }
+
+        this.isWebcamActive = false;
+
+        // Update UI
+        const navCamera = document.getElementById('navCamera');
+        if (navCamera) {
+            navCamera.classList.remove('active');
+            navCamera.querySelector('span:first-of-type').textContent = 'Live Camera';
+        }
+
+        // Show upload overlay
+        document.getElementById('videoOverlay')?.classList.remove('hidden');
+
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        console.log('Webcam stopped');
+    }
+
+    async processWebcamFrame() {
+        if (!this.isWebcamActive || !this.webcamVideo) return;
+
+        // Draw current frame to canvas
+        this.resizeCanvas();
+        const video = this.webcamVideo;
+
+        const scale = Math.min(
+            this.canvas.width / video.videoWidth,
+            this.canvas.height / video.videoHeight
+        );
+        const x = (this.canvas.width - video.videoWidth * scale) / 2;
+        const y = (this.canvas.height - video.videoHeight * scale) / 2;
+
+        this.ctx.drawImage(video, x, y, video.videoWidth * scale, video.videoHeight * scale);
+        this.frameTransform = { x, y, scale, width: video.videoWidth, height: video.videoHeight };
+
+        // Convert canvas to blob and send to server
+        this.canvas.toBlob(async (blob) => {
+            if (blob && this.isWebcamActive) {
+                await this.sendFrameForProcessing(blob);
+            }
+        }, 'image/jpeg', 0.8);
+
+        // Continue processing (throttle to ~10 FPS for server load)
+        if (this.isWebcamActive) {
+            setTimeout(() => this.processWebcamFrame(), 100);
+        }
+    }
+
     handleFileSelect(event) {
         const file = event.target.files[0];
         if (file) {
@@ -260,20 +393,163 @@ class SurveillanceDashboard {
         const x = (this.canvas.width - video.videoWidth * scale) / 2;
         const y = (this.canvas.height - video.videoHeight * scale) / 2;
 
+        // Always draw the LIVE video frame first
         this.ctx.drawImage(video, x, y, video.videoWidth * scale, video.videoHeight * scale);
+
+        // Draw detection boxes on top of the live video
+        if (this.liveDetections && this.liveDetections.length > 0) {
+            this.drawLiveDetectionBoxes(x, y, scale);
+        }
 
         this.frameTransform = { x, y, scale, width: video.videoWidth, height: video.videoHeight };
 
         if (this.isPlaying) {
-            // Send frame for processing
-            this.canvas.toBlob((blob) => {
-                if (blob) {
-                    this.sendFrameForProcessing(blob);
-                }
-            }, 'image/jpeg', 0.8);
+            // Send every Nth frame for processing
+            this.frameSkipCounter++;
+            if (this.frameSkipCounter >= this.processEveryNFrames && !this.isProcessingFrame) {
+                this.frameSkipCounter = 0;
 
+                // Capture current video frame and send for processing
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = video.videoWidth;
+                tempCanvas.height = video.videoHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(video, 0, 0);
+
+                tempCanvas.toBlob((blob) => {
+                    if (blob && !this.isProcessingFrame) {
+                        this.sendFrameForProcessingAsync(blob);
+                    }
+                }, 'image/jpeg', 0.8);
+            }
+
+            // Continue animation loop at full framerate
             requestAnimationFrame(() => this.drawVideoFrame());
         }
+    }
+
+    // Draw detection boxes on the live video
+    drawLiveDetectionBoxes(offsetX, offsetY, scale) {
+        this.liveDetections.forEach(det => {
+            const [bx1, by1, bx2, by2] = det.bbox;
+            const x1 = offsetX + bx1 * scale;
+            const y1 = offsetY + by1 * scale;
+            const w = (bx2 - bx1) * scale;
+            const h = (by2 - by1) * scale;
+
+            // Color based on class
+            let color = '#00ff00'; // Green for vehicles
+            if (det.class === 'person') {
+                color = '#ffaa00'; // Orange for people
+            } else if (det.isSelected) {
+                color = '#00ffff'; // Cyan for selected
+            }
+
+            // Draw bounding box
+            this.ctx.strokeStyle = color;
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(x1, y1, w, h);
+
+            // Draw label background
+            const label = `${det.class} #${det.track_id}`;
+            this.ctx.font = 'bold 14px Inter, sans-serif';
+            const textWidth = this.ctx.measureText(label).width;
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x1, y1 - 22, textWidth + 10, 22);
+
+            // Draw label text
+            this.ctx.fillStyle = '#000000';
+            this.ctx.fillText(label, x1 + 5, y1 - 6);
+        });
+    }
+
+    // Non-blocking frame processing
+    async sendFrameForProcessingAsync(blob) {
+        this.isProcessingFrame = true;
+
+        const formData = new FormData();
+        formData.append('frame', blob);
+
+        try {
+            const response = await fetch('/api/process_frame', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                this.handleProcessingResultAsync(result);
+            }
+        } catch (error) {
+            console.error('Error processing frame:', error);
+        } finally {
+            this.isProcessingFrame = false;
+        }
+    }
+
+    handleProcessingResultAsync(result) {
+        // Update stats
+        if (result.stats) {
+            this.stats = result.stats;
+            this.updateStatsDisplay();
+        }
+
+        // Update crowd data
+        if (result.crowd) {
+            this.stats.crowd_count = result.crowd.count;
+            this.stats.crowd_density = result.crowd.density;
+            this.updateCrowdDisplay();
+        }
+
+        // Update detections (don't block on UI updates)
+        if (result.detections) {
+            result.detections.forEach(det => {
+                if (!this.detections.find(d => d.track_id === det.track_id)) {
+                    this.detections.push(det);
+                }
+            });
+            // Defer UI update
+            requestAnimationFrame(() => this.updateDetectionGrid());
+        }
+
+        // Update plates
+        if (result.plates) {
+            result.plates.forEach(plate => {
+                if (!this.plates.find(p => p.text === plate.text)) {
+                    this.plates.unshift({
+                        ...plate,
+                        time: new Date().toLocaleTimeString()
+                    });
+                }
+            });
+            requestAnimationFrame(() => this.updatePlatesList());
+        }
+
+        // Store detections for live box overlay during video playback
+        if (result.detections && result.detections.length > 0) {
+            this.liveDetections = result.detections;
+        }
+    }
+
+    drawAnnotationsOnCanvas(annotations, offsetX, offsetY, scale) {
+        annotations.forEach(ann => {
+            const x1 = offsetX + ann.bbox[0] * scale;
+            const y1 = offsetY + ann.bbox[1] * scale;
+            const w = (ann.bbox[2] - ann.bbox[0]) * scale;
+            const h = (ann.bbox[3] - ann.bbox[1]) * scale;
+
+            // Draw bounding box
+            this.ctx.strokeStyle = ann.color || '#00ff00';
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeRect(x1, y1, w, h);
+
+            // Draw label
+            if (ann.label) {
+                this.ctx.fillStyle = ann.color || '#00ff00';
+                this.ctx.font = '12px Inter, sans-serif';
+                this.ctx.fillText(ann.label, x1, y1 - 5);
+            }
+        });
     }
 
     togglePlayPause() {
@@ -472,22 +748,22 @@ class SurveillanceDashboard {
         document.getElementById('totalPlates').textContent = this.stats.plates || this.plates.length;
         document.getElementById('fpsValue').textContent = (this.stats.fps || 0).toFixed(1);
         document.getElementById('trackingId').textContent = this.selectedTrackId ? `#${this.selectedTrackId}` : '--';
-        
+
         // Update crowd stats
         const crowdCount = this.stats.crowd_count || 0;
         const crowdDensity = this.stats.crowd_density || 'low';
-        
+
         document.getElementById('crowdCount').textContent = crowdCount;
         document.getElementById('crowdBadge').textContent = crowdCount;
-        
+
         const densityEl = document.getElementById('densityLevel');
         const densityIcon = document.getElementById('densityIcon');
-        
+
         if (densityEl) {
             densityEl.textContent = crowdDensity.toUpperCase();
             densityEl.className = `stat-value density-value density-${crowdDensity}`;
         }
-        
+
         if (densityIcon) {
             densityIcon.className = `stat-icon density density-${crowdDensity}`;
         }
@@ -500,44 +776,44 @@ class SurveillanceDashboard {
     updateCrowdDisplay() {
         const crowdCount = this.stats.crowd_count || 0;
         const crowdDensity = this.stats.crowd_density || 'low';
-        
+
         // Update crowd count
         const crowdCountEl = document.getElementById('crowdCount');
         if (crowdCountEl) {
             crowdCountEl.textContent = crowdCount;
         }
-        
+
         // Update crowd badge
         const crowdBadge = document.getElementById('crowdBadge');
         if (crowdBadge) {
             crowdBadge.textContent = crowdCount;
             crowdBadge.className = `nav-badge crowd-badge density-badge-${crowdDensity}`;
         }
-        
+
         // Update density level
         const densityEl = document.getElementById('densityLevel');
         if (densityEl) {
             densityEl.textContent = crowdDensity.toUpperCase();
             densityEl.className = `stat-value density-value density-${crowdDensity}`;
         }
-        
+
         // Update density icon
         const densityIcon = document.getElementById('densityIcon');
         if (densityIcon) {
             densityIcon.className = `stat-icon density density-${crowdDensity}`;
         }
-        
+
         // Show alert for high density
         if (crowdDensity === 'high' && crowdCount > 0) {
             this.showCrowdAlert(crowdCount);
         }
     }
-    
+
     showCrowdAlert(count) {
         // Only show alert once per high density event
         if (this.lastAlertDensity === 'high') return;
         this.lastAlertDensity = 'high';
-        
+
         // Create alert notification
         const alert = document.createElement('div');
         alert.className = 'crowd-alert';
@@ -549,7 +825,7 @@ class SurveillanceDashboard {
             <span>High Crowd Density: ${count} people detected</span>
         `;
         document.body.appendChild(alert);
-        
+
         // Remove after 5 seconds
         setTimeout(() => {
             alert.classList.add('fade-out');

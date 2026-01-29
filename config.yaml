@@ -3,11 +3,15 @@
 
 # Vehicle Detection Settings
 detection:
-  model: "yolo11l.pt"             # Model: yolo11l (high accuracy for small objects)
-  confidence_threshold: 0.15      # Lower threshold for high-altitude detection
-  iou_threshold: 0.45             # Overlap threshold for NMS
-  device: "mps"                   # Device: mps (Apple GPU), cpu, cuda
-  classes: [0, 2, 5, 7]           # COCO classes: 0=person, 2=car, 5=bus, 7=truck
+  model: "yolo11s.pt"                # Base model (or use custom: weights/vehicle_detector.pt)
+  person_model: "weights/person_detector.pt"   # Custom trained person detector
+  vehicle_model: "weights/vehicle_detector.pt" # Custom trained vehicle detector  
+  plate_model: "weights/plate_detector.pt"     # Custom trained plate detector
+  confidence_threshold: 0.25         # Balanced threshold for accuracy
+  iou_threshold: 0.45                # Overlap threshold for NMS
+  device: "mps"                      # Device: mps (Apple GPU), cpu, cuda
+  classes: [0, 2, 5, 7]              # COCO classes: 0=person, 2=car, 5=bus, 7=truck
+
 
 # Image Preprocessing (for high-altitude/low-quality images)
 preprocessing:

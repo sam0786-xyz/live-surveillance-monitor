@@ -149,7 +149,7 @@ class Visualizer:
                 label_parts.append(f"ID:{track.track_id}")
             if self.config.show_class:
                 label_parts.append(track.class_name)
-            if self.config.show_confidence:
+            if self.config.show_confidence and track.confidence is not None:
                 label_parts.append(f"{track.confidence:.2f}")
             
             if label_parts:
